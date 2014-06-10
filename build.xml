@@ -1,0 +1,160 @@
+<project name="Ceylon distribution OSGI Bundle" default="publish" basedir=".">
+
+    <property file="../ceylon-common/common-build.properties" />
+
+    <property name="name" value="Ceylon distribution OSGI bundle" />
+    <property name="ceylon.repo.dir" location="${user.home}/.ceylon/repo" />
+    <property name="ceylon.common.dir" value="com/redhat/ceylon/common/${module.com.redhat.ceylon.common.version}" />
+    <property name="ceylon.common.jar" value="${ceylon.common.dir}/com.redhat.ceylon.common-${module.com.redhat.ceylon.common.version}.jar" />
+    <property name="ceylon.common.lib" location="${ceylon.repo.dir}/${ceylon.common.jar}" />
+    <property name="ceylon.typechecker.dir" value="com/redhat/ceylon/typechecker/${module.com.redhat.ceylon.typechecker.version}" />
+    <property name="ceylon.typechecker.jar" value="${ceylon.typechecker.dir}/com.redhat.ceylon.typechecker-${module.com.redhat.ceylon.typechecker.version}.jar" />
+    <property name="ceylon.typechecker.lib" location="${ceylon.repo.dir}/${ceylon.typechecker.jar}" />
+    <property name="ceylon.language.dir" value="ceylon/language/${module.ceylon.language.version}" />
+    <property name="ceylon.language.car" value="${ceylon.language.dir}/ceylon.language-${module.ceylon.language.version}.car" />
+    <property name="ceylon.language.lib" location="${ceylon.repo.dir}/${ceylon.language.car}" />
+    <property name="ceylon.module-resolver.dir" value="com/redhat/ceylon/module-resolver/${module.com.redhat.ceylon.module-resolver.version}" />
+    <property name="ceylon.module-resolver.jar" value="${ceylon.module-resolver.dir}/com.redhat.ceylon.module-resolver-${module.com.redhat.ceylon.module-resolver.version}.jar" />
+    <property name="ceylon.module-resolver.lib" location="${ceylon.repo.dir}/${ceylon.module-resolver.jar}" />
+    <property name="ceylon.compiler.dir" value="com/redhat/ceylon/compiler/java/${module.com.redhat.ceylon.compiler.version}" />
+    <property name="ceylon.compiler.jar" value="${ceylon.compiler.dir}/com.redhat.ceylon.compiler.java-${module.com.redhat.ceylon.compiler.version}.jar" />
+    <property name="ceylon.compiler.lib" location="${ceylon.repo.dir}/${ceylon.compiler.jar}" />
+
+    <!-- The Java source files for the OSGI-specific meta-model bootstrapper -->
+    <property name="src" location="src" />
+
+
+	<!-- Directories everything gets built into -->
+    <property name="build" location="build" />
+    <property name="build.classes" location="${build}/classes" />
+    <property name="build.dist" location="${build}/dist" />
+	  <tstamp>
+	      <format property="qualifier" timezone="GMT" pattern="'v'yyyyMMdd-HHmm"/>
+	  </tstamp>    	
+    <property name="ceylon.dist.osgi.jar" value="com.redhat.ceylon.dist_${module.com.redhat.ceylon.dist.osgi.version}.${qualifier}.jar" />
+    <property name="p2" location="${basedir}/p2" />
+    <property name="p2.build" location="${p2}/build" />
+    <property name="p2.dist" location="${p2.build}/dist" />
+    <property name="p2.build.plugins" location="${p2.build}/plugins" />
+    <property name="p2.dist.repository" location="${p2.dist}/repository" />
+
+    <path id="classpath">
+        <pathelement path="${ceylon.common.lib}" />
+        <pathelement path="${ceylon.module-resolver.lib}" />
+        <pathelement path="${ceylon.typechecker.lib}" />
+        <pathelement path="${ceylon.language.lib}" />
+        <pathelement path="${ceylon.compiler.lib}" />
+        <pathelement path="${basedir}/lib/org.osgi.core-4.3.1.jar" />
+    </path>
+
+    <!-- ################################################################## -->
+
+    <!-- constant to declare a file binary for checksumsum -->
+    <property name="checksum.binary-prefix" value=" *" />
+    <!-- Helper target, used to create a sha1 checksum file  -->
+    <!-- Requires 'file' as a parameter. -->
+    <target name="sha1sum">
+        <fail unless="file" />
+        <fail if="filename" />
+        <fail if="value" />
+        <basename file="${file}" property="filename" />
+        <checksum file="${file}" property="value" algorithm="sha1" />
+        <echo file="${file}.sha1" message="${value}" />
+    </target>
+
+    <!-- Rule to clean everything up -->
+    <target name="clean">
+        <delete failonerror="false" dir="${build}"/>
+    	<delete includeemptydirs="true">
+    	    <fileset dir="${basedir}/defaultRepository" includes="**/*"/>
+    	</delete>        
+    	<delete file="${basedir}/lib/ceylon-bootstrap.jar"/>
+    </target>
+
+    <!-- Rule to build compiler classes from their Java sources -->
+    <target name="classes">
+        <mkdir dir="${build.classes}" />
+        <javac srcdir="${src}" destdir="${build.classes}" debug="true" encoding="UTF-8" classpathref="classpath" includeantruntime="true">
+        </javac>
+    </target>
+
+	<!-- Rule to build osgi bundle jar -->
+    <target name="updateManifest" >
+        <copy todir="${build.classes}" >
+		    <fileset dir="${basedir}">
+		        <include name="META-INF/**" />
+		    </fileset>
+        </copy>
+    	<replaceregexp file="${build.classes}/META-INF/MANIFEST.MF"
+    		match="(Bundle-Version: .*\.)qualifier"
+    		replace="\1${qualifier}"
+    		byline="true"/>
+    </target>
+
+	<!-- Rule to build osgi bundle jar -->
+    <target name="build" depends="classes, updateManifest">
+        <mkdir dir="${build.dist}" />
+        <zip destfile="${build.dist}/${ceylon.dist.osgi.jar}" >
+            <fileset dir="${build.classes}" includes="**"/>
+		    <fileset dir="${basedir}">
+		        <include name="defaultRepository/**" />
+		        <include name="lib/ceylon-bootstrap.jar" />
+		    </fileset>
+        </zip>
+    </target>
+
+    <target name="publish" depends="build" description="Create Ceylon Dist OSGI Bundle distribution" />
+    <target name="publish-internal" />
+
+	<!-- Rule to setup a plugins directory with required bundles -->
+    <target name="generate-p2-repo" depends="build">
+    	<delete failonerror="false" dir="${p2.build.plugins}"/>
+        <mkdir dir="${p2.build.plugins}" />
+    	<delete failonerror="false" dir="${p2.dist.repository}"/>
+        <mkdir dir="${p2.dist.repository}" />    	
+		<copy todir="${p2.build.plugins}" overwrite="true">
+			<fileset file="${ceylon.language.lib}"/>
+			<globmapper from="*.car" to="*.jar"/>
+		</copy>
+		<copy file="${build.dist}/${ceylon.dist.osgi.jar}" overwrite="true" 
+			todir="${p2.build.plugins}">
+		</copy>
+    	<makeurl property="destinationRepository" file="${p2.dist.repository}"/>
+    	<makeurl property="categoryDefinition" file="${p2}/category.xml"/>
+    	<exec dir="${basedir}" executable="eclipse" failonerror="true">
+    		<arg value="-noSplash"/>
+    		<arg value="-console"/>
+    		<arg value="-consolelog"/>
+    		<arg value="--launcher.suppressErrors"/>
+    		<arg value="-application"/>
+    		<arg value="org.eclipse.equinox.p2.publisher.FeaturesAndBundlesPublisher"/>
+    		<arg value="-metadataRepository"/>
+    		<arg value="${destinationRepository}"/>
+    		<arg value="-artifactRepository"/>
+    		<arg value="${destinationRepository}"/>
+    		<arg value="-source"/>
+    		<arg file="${p2.build}"/>
+    		<arg value="-publishArtifacts"/>
+    	</exec>
+    	<exec dir="${basedir}" executable="eclipse">
+    		<arg value="-noSplash"/>
+    		<arg value="-console"/>
+    		<arg value="-consolelog"/>
+    		<arg value="--launcher.suppressErrors"/>
+    		<arg value="-application"/>
+    		<arg value="org.eclipse.equinox.p2.publisher.CategoryPublisher"/>
+    		<arg value="-metadataRepository"/>
+    		<arg value="${destinationRepository}"/>
+    		<arg value="-categoryDefinition"/>
+    		<arg value="${categoryDefinition}"/>
+    		<arg value="-categoryQualifier"/>
+    		<arg value="com.redhat.ceylon.dist.osgi.bundles"/>
+    	</exec>
+    </target>
+
+    <target name="ide-quick-internal" depends="generate-p2-repo"/>
+
+    <target name="ide-quick" depends="ide-quick-internal"/>
+
+    <target name="ide" depends="publish, ide-quick"/>
+</project>
