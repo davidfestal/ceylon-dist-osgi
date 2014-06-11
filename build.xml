@@ -128,8 +128,12 @@
     		<arg value="--launcher.suppressErrors"/>
     		<arg value="-application"/>
     		<arg value="org.eclipse.equinox.p2.publisher.FeaturesAndBundlesPublisher"/>
+    		<arg value="-metadataRepositoryName"/>
+    		<arg value="Ceylon Distribution Bundles"/>
     		<arg value="-metadataRepository"/>
     		<arg value="${destinationRepository}"/>
+    		<arg value="-artifactRepositoryName"/>
+    		<arg value="Ceylon Distribution Bundles"/>
     		<arg value="-artifactRepository"/>
     		<arg value="${destinationRepository}"/>
     		<arg value="-source"/>
@@ -148,7 +152,7 @@
     		<arg value="-categoryDefinition"/>
     		<arg value="${categoryDefinition}"/>
     		<arg value="-categoryQualifier"/>
-    		<arg value="com.redhat.ceylon.dist.osgi.bundles"/>
+    		<arg value="com.redhat.ceylon.dist"/>
     	</exec>
     </target>
 
